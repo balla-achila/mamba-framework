@@ -1,141 +1,75 @@
-
-## Phase 3: Logger Package
-
-### framework/logger/logger.go
-```go
-package logger
-
-import (
-    "fmt"
-    "io"
-    "os"
-    "time"
-
-    "github.com/rs/zerolog"
-    "github.com/rs/zerolog/pkgerrors"
-)
-
-type Logger interface {
-    Debug(msg string, args ...interface{})
-    Info(msg string, args ...interface{})
-    Warn(msg string, args ...interface{})
-    Error(msg string, args ...interface{})
-    Fatal(msg string, args ...interface{})
-    With(args ...interface{}) Logger
-    Sync() error
-}
-
-type Config struct {
-    Level      string
-    OutputPath string
-    MaxSize    int
-    MaxBackups int
-    MaxAge     int
-    Compress   bool
-}
-
-type MambaLogger struct {
-    logger zerolog.Logger
-    config *Config
-}
-
-func New(cfg *Config) (Logger, error) {
-    level, err := zerolog.ParseLevel(cfg.Level)
-    if err != nil {
-        level = zerolog.InfoLevel
+{
+    "environment": "development",
+    "server": {
+        "host": "0.0.0.0",
+        "port": 8080,
+        "read_timeout": 15,
+        "write_timeout": 15,
+        "max_header_bytes": 1048576,
+        "templates_path": "templates",
+        "static_path": "static",
+        "uploads_path": "uploads"
+    },
+    "database": {
+        "host": "localhost",
+        "port": 5432,
+        "user": "mamba",
+        "password": "mamba_password",
+        "database": "mamba",
+        "ssl_mode": "disable",
+        "max_connections": 25,
+        "min_connections": 5,
+        "max_idle_time": 300,
+        "max_life_time": 3600,
+        "query_timeout": 30
+    },
+    "logger": {
+        "level": "debug",
+        "output_path": "stdout",
+        "max_size": 100,
+        "max_backups": 5,
+        "max_age": 30,
+        "compress": true
+    },
+    "session": {
+        "secret_key": "your-secret-key-here-change-in-production",
+        "name": "mamba_session",
+        "max_age": 86400,
+        "secure": false,
+        "http_only": true,
+        "same_site": "lax"
+    },
+    "security": {
+        "csrf_secret": "",
+        "csrf_max_age": 86400,
+        "rate_limit": 100,
+        "rate_limit_window": 60,
+        "allowed_hosts": ["localhost"],
+        "force_https": false,
+        "hsts_max_age": 0
+    },
+    "upload": {
+        "max_size": 10485760,
+        "allowed_types": [
+            "image/jpeg",
+            "image/png",
+            "image/gif",
+            "image/webp",
+            "application/pdf",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "text/csv"
+        ],
+        "temp_dir": "/tmp/mamba_uploads",
+        "permissions": "0644",
+        "chunk_size": 1048576
+    },
+    "tenant": {
+        "enabled": true,
+        "default_tenant_id": "default",
+        "tenant_header": "X-Tenant-ID",
+        "tenant_param": "tenant"
     }
-    zerolog.SetGlobalLevel(level)
-    zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
-
-    var output io.Writer
-    if cfg.OutputPath == "" || cfg.OutputPath == "stdout" {
-        output = zerolog.ConsoleWriter{
-            Out:        os.Stdout,
-            TimeFormat: time.RFC3339,
-        }
-    } else {
-        file, err := os.OpenFile(cfg.OutputPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
-        if err != nil {
-            return nil, fmt.Errorf("failed to open log file: %w", err)
-        }
-        output = file
-    }
-
-    logger := zerolog.New(output).
-        With().
-        Timestamp().
-        Caller().
-        Logger()
-
-    return &MambaLogger{
-        logger: logger,
-        config: cfg,
-    }, nil
-}
-
-func (l *MambaLogger) Debug(msg string, args ...interface{}) {
-    if len(args) > 0 {
-        l.logger.Debug().Fields(argsToFields(args...)).Msg(msg)
-    } else {
-        l.logger.Debug().Msg(msg)
-    }
-}
-
-func (l *MambaLogger) Info(msg string, args ...interface{}) {
-    if len(args) > 0 {
-        l.logger.Info().Fields(argsToFields(args...)).Msg(msg)
-    } else {
-        l.logger.Info().Msg(msg)
-    }
-}
-
-func (l *MambaLogger) Warn(msg string, args ...interface{}) {
-    if len(args) > 0 {
-        l.logger.Warn().Fields(argsToFields(args...)).Msg(msg)
-    } else {
-        l.logger.Warn().Msg(msg)
-    }
-}
-
-func (l *MambaLogger) Error(msg string, args ...interface{}) {
-    if len(args) > 0 {
-        l.logger.Error().Fields(argsToFields(args...)).Msg(msg)
-    } else {
-        l.logger.Error().Msg(msg)
-    }
-}
-
-func (l *MambaLogger) Fatal(msg string, args ...interface{}) {
-    if len(args) > 0 {
-        l.logger.Fatal().Fields(argsToFields(args...)).Msg(msg)
-    } else {
-        l.logger.Fatal().Msg(msg)
-    }
-}
-
-func (l *MambaLogger) With(args ...interface{}) Logger {
-    if len(args) > 0 {
-        return &MambaLogger{
-            logger: l.logger.With().Fields(argsToFields(args...)).Logger(),
-            config: l.config,
-        }
-    }
-    return l
-}
-
-func (l *MambaLogger) Sync() error {
-    if l.logger.GetLevel() == zerolog.NoLevel {
-        return nil
-    }
-    return nil
-}
-
-func argsToFields(args ...interface{}) map[string]interface{} {
-    fields := make(map[string]interface{})
-    for i := 0; i < len(args)-1; i += 2 {
-        if key, ok := args[i].(string); ok {
-            fields[key] = args[i+1]
-        }
-    }
-    return fields
 }
