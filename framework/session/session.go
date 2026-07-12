@@ -1,10 +1,10 @@
 package session
 
 import (
+
     "context"
     "net/http"
     "time"
-
     "github.com/gorilla/sessions"
     "github.com/gorilla/securecookie"
 )
