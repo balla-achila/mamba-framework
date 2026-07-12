@@ -12,4 +12,4 @@ Mamba Framework is a production-ready Go web framework designed specifically for
 ## Installation
 ```bash
 go mod init your-project
-go get github.com/mamba-framework/mamba
+go get github.com/balla-achila/mamba-framework
