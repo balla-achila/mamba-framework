@@ -2,7 +2,11 @@ module github.com/balla-achila/mamba-framework
 
 go 1.25
 
-require github.com/rs/zerolog v1.33.0
+require (
+	github.com/gorilla/securecookie v1.1.2
+	github.com/gorilla/sessions v1.2.2
+	github.com/rs/zerolog v1.33.0
+)
 
 require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
