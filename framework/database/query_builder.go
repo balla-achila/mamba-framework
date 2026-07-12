@@ -20,10 +20,10 @@ type QueryBuilder struct {
 
 func NewQueryBuilder(table string) *QueryBuilder {
     return &QueryBuilder{
-        table: table,
-        where: make([]string, 0),
-        args:  make([]interface{}, 0),
-        joins: make([]string, 0),
+        table:  table,
+        where:  make([]string, 0),
+        args:   make([]interface{}, 0),
+        joins:  make([]string, 0),
         groupBy: make([]string, 0),
         having: make([]string, 0),
     }

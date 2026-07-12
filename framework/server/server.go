@@ -6,9 +6,9 @@ import (
     "net/http"
     "time"
 
-    "github.com/mamba-framework/mamba/framework/app"
-    "github.com/mamba-framework/mamba/framework/config"
-    "github.com/mamba-framework/mamba/framework/logger"
+    "github.com/balla-achila/mamba-framework/framework/app"
+    "github.com/balla-achila/mamba-framework/framework/config"
+    "github.com/balla-achila/mamba-framework/framework/logger"
 )
 
 type Server struct {
@@ -37,10 +37,10 @@ func New(cfg *config.ServerConfig, app *app.App, log logger.Logger) *Server {
 }
 
 func (s *Server) Start() error {
-    s.logger.Info("Starting server...", 
+    s.logger.Info("Starting server...",
         "addr", s.httpServer.Addr,
         "environment", s.app.Config.Environment)
-    
+
     return s.httpServer.ListenAndServe()
 }
 

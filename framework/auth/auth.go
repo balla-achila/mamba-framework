@@ -6,9 +6,9 @@ import (
     "time"
 
     "golang.org/x/crypto/bcrypt"
-    "github.com/mamba-framework/mamba/framework/database"
-    "github.com/mamba-framework/mamba/framework/logger"
-    "github.com/mamba-framework/mamba/framework/session"
+    "github.com/balla-achila/mamba-framework/framework/database"
+    "github.com/balla-achila/mamba-framework/framework/logger"
+    "github.com/balla-achila/mamba-framework/framework/session"
 )
 
 type Auth struct {
@@ -17,17 +17,17 @@ type Auth struct {
 }
 
 type User struct {
-    ID        int64     `db:"id"`
-    Username  string    `db:"username"`
-    Email     string    `db:"email"`
-    Password  string    `db:"password"`
-    TenantID  string    `db:"tenant_id"`
-    Role      string    `db:"role"`
-    FirstName string    `db:"first_name"`
-    LastName  string    `db:"last_name"`
-    IsActive  bool      `db:"is_active"`
-    CreatedAt time.Time `db:"created_at"`
-    UpdatedAt time.Time `db:"updated_at"`
+    ID        int64     `json:"id" db:"id"`
+    Username  string    `json:"username" db:"username"`
+    Email     string    `json:"email" db:"email"`
+    Password  string    `json:"-" db:"password"`
+    TenantID  string    `json:"tenant_id" db:"tenant_id"`
+    Role      string    `json:"role" db:"role"`
+    FirstName string    `json:"first_name" db:"first_name"`
+    LastName  string    `json:"last_name" db:"last_name"`
+    IsActive  bool      `json:"is_active" db:"is_active"`
+    CreatedAt time.Time `json:"created_at" db:"created_at"`
+    UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 }
 
 type LoginAttempt struct {
@@ -54,11 +54,11 @@ func New(db database.DB, log logger.Logger) *Auth {
 
 func (a *Auth) Login(ctx context.Context, username, password, ipAddress string) (*User, error) {
     var user User
-    err := a.db.QueryRow(ctx, "SELECT * FROM users WHERE username = $1 AND is_active = true", username).
+    err := a.db.QueryRow(ctx, "SELECT id, username, email, password, tenant_id, role, first_name, last_name, is_active, created_at, updated_at FROM users WHERE username = $1 AND is_active = true", username).
         Scan(&user.ID, &user.Username, &user.Email, &user.Password, &user.TenantID,
             &user.Role, &user.FirstName, &user.LastName, &user.IsActive,
             &user.CreatedAt, &user.UpdatedAt)
-    
+
     if err != nil {
         a.logLoginAttempt(ctx, username, ipAddress, false)
         return nil, fmt.Errorf("invalid username or password")
@@ -121,7 +121,7 @@ func (a *Auth) ChangePassword(ctx context.Context, userID int64, oldPassword, ne
     }
 
     _, err = a.db.Update(ctx, "users", map[string]interface{}{
-        "password": string(hashedPassword),
+        "password":   string(hashedPassword),
         "updated_at": time.Now(),
     }, "id = $1", userID)
 
@@ -139,10 +139,10 @@ func (a *Auth) ResetPassword(ctx context.Context, email string) (string, error) 
     expiresAt := time.Now().Add(24 * time.Hour)
 
     _, err = a.db.Insert(ctx, "password_resets", map[string]interface{}{
-        "user_id":     userID,
-        "token":       token,
-        "expires_at":  expiresAt,
-        "used":        false,
+        "user_id":    userID,
+        "token":      token,
+        "expires_at": expiresAt,
+        "used":       false,
     })
 
     if err != nil {
@@ -154,9 +154,9 @@ func (a *Auth) ResetPassword(ctx context.Context, email string) (string, error) 
 
 func (a *Auth) ConfirmReset(ctx context.Context, token, newPassword string) error {
     var reset PasswordReset
-    err := a.db.QueryRow(ctx, "SELECT * FROM password_resets WHERE token = $1 AND used = false AND expires_at > NOW()", token).
+    err := a.db.QueryRow(ctx, "SELECT id, user_id, token, expires_at, used FROM password_resets WHERE token = $1 AND used = false AND expires_at > NOW()", token).
         Scan(&reset.ID, &reset.UserID, &reset.Token, &reset.ExpiresAt, &reset.Used)
-    
+
     if err != nil {
         return fmt.Errorf("invalid or expired token")
     }
@@ -172,7 +172,7 @@ func (a *Auth) ConfirmReset(ctx context.Context, token, newPassword string) erro
     }
     defer tx.Rollback(ctx)
 
-    _, err = tx.Exec(ctx, "UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2", 
+    _, err = tx.Exec(ctx, "UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2",
         string(hashedPassword), reset.UserID)
     if err != nil {
         return err
@@ -195,9 +195,9 @@ func (a *Auth) Logout(ctx context.Context, userID int64) error {
 
 func (a *Auth) logLoginAttempt(ctx context.Context, username, ipAddress string, success bool) {
     _, err := a.db.Insert(ctx, "login_attempts", map[string]interface{}{
-        "username":    username,
-        "ip_address":  ipAddress,
-        "success":     success,
+        "username":     username,
+        "ip_address":   ipAddress,
+        "success":      success,
         "attempt_time": time.Now(),
     })
     if err != nil {
@@ -207,11 +207,11 @@ func (a *Auth) logLoginAttempt(ctx context.Context, username, ipAddress string, 
 
 func (a *Auth) GetUserByID(ctx context.Context, userID int64) (*User, error) {
     var user User
-    err := a.db.QueryRow(ctx, "SELECT * FROM users WHERE id = $1", userID).
+    err := a.db.QueryRow(ctx, "SELECT id, username, email, password, tenant_id, role, first_name, last_name, is_active, created_at, updated_at FROM users WHERE id = $1", userID).
         Scan(&user.ID, &user.Username, &user.Email, &user.Password, &user.TenantID,
             &user.Role, &user.FirstName, &user.LastName, &user.IsActive,
             &user.CreatedAt, &user.UpdatedAt)
-    
+
     if err != nil {
         return nil, err
     }
@@ -220,11 +220,11 @@ func (a *Auth) GetUserByID(ctx context.Context, userID int64) (*User, error) {
 
 func (a *Auth) GetUserByEmail(ctx context.Context, email string) (*User, error) {
     var user User
-    err := a.db.QueryRow(ctx, "SELECT * FROM users WHERE email = $1", email).
+    err := a.db.QueryRow(ctx, "SELECT id, username, email, password, tenant_id, role, first_name, last_name, is_active, created_at, updated_at FROM users WHERE email = $1", email).
         Scan(&user.ID, &user.Username, &user.Email, &user.Password, &user.TenantID,
             &user.Role, &user.FirstName, &user.LastName, &user.IsActive,
             &user.CreatedAt, &user.UpdatedAt)
-    
+
     if err != nil {
         return nil, err
     }

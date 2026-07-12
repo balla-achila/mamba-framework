@@ -7,7 +7,7 @@ import (
 
     "github.com/gorilla/sessions"
     "github.com/gorilla/securecookie"
-    "github.com/mamba-framework/mamba/framework/config"
+    "github.com/balla-achila/mamba-framework/framework/config"
 )
 
 var store *sessions.CookieStore
@@ -24,7 +24,6 @@ type Manager struct {
 }
 
 func New(cfg *config.SessionConfig) *Manager {
-    // Register types for session storage
     gob.Register(map[string]interface{}{})
     gob.Register([]interface{}{})
 

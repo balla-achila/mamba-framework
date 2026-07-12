@@ -44,21 +44,21 @@ type DatabaseConfig struct {
 }
 
 type LoggerConfig struct {
-    Level           string `json:"level"`
-    OutputPath      string `json:"output_path"`
-    MaxSize         int    `json:"max_size"`
-    MaxBackups      int    `json:"max_backups"`
-    MaxAge          int    `json:"max_age"`
-    Compress        bool   `json:"compress"`
+    Level      string `json:"level"`
+    OutputPath string `json:"output_path"`
+    MaxSize    int    `json:"max_size"`
+    MaxBackups int    `json:"max_backups"`
+    MaxAge     int    `json:"max_age"`
+    Compress   bool   `json:"compress"`
 }
 
 type SessionConfig struct {
-    SecretKey       string `json:"secret_key"`
-    Name            string `json:"name"`
-    MaxAge          int    `json:"max_age"`
-    Secure          bool   `json:"secure"`
-    HttpOnly        bool   `json:"http_only"`
-    SameSite        string `json:"same_site"`
+    SecretKey string `json:"secret_key"`
+    Name      string `json:"name"`
+    MaxAge    int    `json:"max_age"`
+    Secure    bool   `json:"secure"`
+    HttpOnly  bool   `json:"http_only"`
+    SameSite  string `json:"same_site"`
 }
 
 type SecurityConfig struct {
@@ -72,24 +72,24 @@ type SecurityConfig struct {
 }
 
 type UploadConfig struct {
-    MaxSize          int64    `json:"max_size"`
-    AllowedTypes     []string `json:"allowed_types"`
-    TempDir          string   `json:"temp_dir"`
-    Permissions      string   `json:"permissions"`
-    ChunkSize        int64    `json:"chunk_size"`
+    MaxSize      int64    `json:"max_size"`
+    AllowedTypes []string `json:"allowed_types"`
+    TempDir      string   `json:"temp_dir"`
+    Permissions  string   `json:"permissions"`
+    ChunkSize    int64    `json:"chunk_size"`
 }
 
 type TenantConfig struct {
-    Enabled          bool   `json:"enabled"`
-    DefaultTenantID  string `json:"default_tenant_id"`
-    TenantHeader     string `json:"tenant_header"`
-    TenantParam      string `json:"tenant_param"`
+    Enabled         bool   `json:"enabled"`
+    DefaultTenantID string `json:"default_tenant_id"`
+    TenantHeader    string `json:"tenant_header"`
+    TenantParam     string `json:"tenant_param"`
 }
 
 func Load(path string) (*Config, error) {
     data, err := os.ReadFile(path)
     if err != nil {
-        return nil, fmt.Errorf("failed to read config file: %w", err)
+        return DefaultConfig(), fmt.Errorf("failed to read config file: %w", err)
     }
 
     var cfg Config
@@ -108,7 +108,7 @@ func Load(path string) (*Config, error) {
         cfg.Server.UploadsPath = "uploads"
     }
     if cfg.Server.MaxHeaderBytes == 0 {
-        cfg.Server.MaxHeaderBytes = 1 << 20 // 1MB
+        cfg.Server.MaxHeaderBytes = 1 << 20
     }
     if cfg.Database.MaxConnections == 0 {
         cfg.Database.MaxConnections = 25
@@ -120,7 +120,7 @@ func Load(path string) (*Config, error) {
         cfg.Database.QueryTimeout = 30
     }
     if cfg.Session.MaxAge == 0 {
-        cfg.Session.MaxAge = 86400 // 24 hours
+        cfg.Session.MaxAge = 86400
     }
     if cfg.Security.RateLimit == 0 {
         cfg.Security.RateLimit = 100
@@ -129,10 +129,79 @@ func Load(path string) (*Config, error) {
         cfg.Security.RateLimitWindow = 60
     }
     if cfg.Upload.MaxSize == 0 {
-        cfg.Upload.MaxSize = 10 << 20 // 10MB
+        cfg.Upload.MaxSize = 10 << 20
     }
 
     return &cfg, nil
+}
+
+func DefaultConfig() *Config {
+    return &Config{
+        Environment: "development",
+        Server: ServerConfig{
+            Host:           "0.0.0.0",
+            Port:           8080,
+            ReadTimeout:    15,
+            WriteTimeout:   15,
+            MaxHeaderBytes: 1 << 20,
+            TemplatesPath:  "templates",
+            StaticPath:     "static",
+            UploadsPath:    "uploads",
+        },
+        Database: DatabaseConfig{
+            Host:           "localhost",
+            Port:           5432,
+            User:           "mamba",
+            Password:       "mamba_password",
+            Database:       "mamba",
+            SSLMode:        "disable",
+            MaxConnections: 25,
+            MinConnections: 5,
+            MaxIdleTime:    300,
+            MaxLifeTime:    3600,
+            QueryTimeout:   30,
+        },
+        Logger: LoggerConfig{
+            Level:      "debug",
+            OutputPath: "stdout",
+            MaxSize:    100,
+            MaxBackups: 5,
+            MaxAge:     30,
+            Compress:   true,
+        },
+        Session: SessionConfig{
+            SecretKey: "change-this-in-production-32-characters",
+            Name:      "mamba_session",
+            MaxAge:    86400,
+            Secure:    false,
+            HttpOnly:  true,
+            SameSite:  "lax",
+        },
+        Security: SecurityConfig{
+            CSRFSecret:      "",
+            CSRFMaxAge:      86400,
+            RateLimit:       100,
+            RateLimitWindow: 60,
+            AllowedHosts:    []string{"localhost", "127.0.0.1"},
+            ForceHTTPS:      false,
+            HSTSMaxAge:      0,
+        },
+        Upload: UploadConfig{
+            MaxSize: 10 << 20,
+            AllowedTypes: []string{
+                "image/jpeg", "image/png", "image/gif",
+            },
+            TempDir:      "/tmp/mamba_uploads",
+            Permissions:  "0644",
+            ChunkSize:    1048576,
+        },
+        Tenant: TenantConfig{
+            Enabled:         true,
+            DefaultTenantID: "default",
+            TenantHeader:    "X-Tenant-ID",
+            TenantParam:     "tenant",
+        },
+    }
 }
 
 func (c *Config) IsProduction() bool {
@@ -145,6 +214,6 @@ func (c *Config) IsDevelopment() bool {
 
 func (c *Config) GetDSN() string {
     return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
-        c.Database.Host, c.Database.Port, c.Database.User, 
+        c.Database.Host, c.Database.Port, c.Database.User,
         c.Database.Password, c.Database.Database, c.Database.SSLMode)
 }

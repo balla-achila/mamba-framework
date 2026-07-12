@@ -11,8 +11,10 @@ import (
     "time"
 
     "github.com/gorilla/csrf"
-    "github.com/mamba-framework/mamba/framework/config"
-    "github.com/mamba-framework/mamba/framework/logger"
+
+    "github.com/gorilla/csrf"
+    "github.com/balla-achila/mamba-framework/framework/config"
+    "github.com/balla-achila/mamba-framework/framework/logger"
 )
 
 type Security struct {

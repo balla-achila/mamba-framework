@@ -4,7 +4,7 @@ import (
     "context"
     "net/http"
 
-    "github.com/mamba-framework/mamba/framework/session"
+    "github.com/balla-achila/mamba-framework/framework/session"
 )
 
 type contextKey string
@@ -66,12 +66,11 @@ func (a *Auth) RequirePermission(permission string) func(http.Handler) http.Hand
                 return
             }
 
-            // Check if user has permission
             var hasPermission bool
-            err := a.db.QueryRow(r.Context(), 
-                "SELECT EXISTS(SELECT 1 FROM user_permissions WHERE user_id = $1 AND permission = $2)", 
+            err := a.db.QueryRow(r.Context(),
+                "SELECT EXISTS(SELECT 1 FROM user_permissions WHERE user_id = $1 AND permission = $2)",
                 user.ID, permission).Scan(&hasPermission)
-            
+
             if err != nil || !hasPermission {
                 http.Error(w, "Forbidden", http.StatusForbidden)
                 return

@@ -8,8 +8,8 @@ import (
 
     "github.com/jackc/pgx/v5"
     "github.com/jackc/pgx/v5/pgxpool"
-    "github.com/mamba-framework/mamba/framework/config"
-    "github.com/mamba-framework/mamba/framework/logger"
+    "github.com/balla-achila/mamba-framework/framework/config"
+    "github.com/balla-achila/mamba-framework/framework/logger"
 )
 
 type Database struct {
@@ -23,12 +23,42 @@ type DB interface {
     Query(ctx context.Context, query string, args ...interface{}) (*Rows, error)
     QueryRow(ctx context.Context, query string, args ...interface{}) Row
     Exec(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
-    First(ctx context.Context, dest interface{}, query string, args ...interface{}) error
     Insert(ctx context.Context, table string, data map[string]interface{}) (int64, error)
     Update(ctx context.Context, table string, data map[string]interface{}, where string, args ...interface{}) (int64, error)
     Delete(ctx context.Context, table string, where string, args ...interface{}) (int64, error)
     Begin(ctx context.Context) (*Tx, error)
     Close() error
+}
+
+type NoOpDB struct{}
+
+func NewNoOp() DB {
+    return &NoOpDB{}
+}
+
+func (n *NoOpDB) Query(ctx context.Context, query string, args ...interface{}) (*Rows, error) {
+    return nil, nil
+}
+func (n *NoOpDB) QueryRow(ctx context.Context, query string, args ...interface{}) Row {
+    return nil
+}
+func (n *NoOpDB) Exec(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
+    return nil, nil
+}
+func (n *NoOpDB) Insert(ctx context.Context, table string, data map[string]interface{}) (int64, error) {
+    return 1, nil
+}
+func (n *NoOpDB) Update(ctx context.Context, table string, data map[string]interface{}, where string, args ...interface{}) (int64, error) {
+    return 1, nil
+}
+func (n *NoOpDB) Delete(ctx context.Context, table string, where string, args ...interface{}) (int64, error) {
+    return 1, nil
+}
+func (n *NoOpDB) Begin(ctx context.Context) (*Tx, error) {
+    return nil, nil
+}
+func (n *NoOpDB) Close() error {
+    return nil
 }
 
 func New(cfg *config.DatabaseConfig, log logger.Logger) (DB, error) {
@@ -93,11 +123,6 @@ func (db *Database) Exec(ctx context.Context, query string, args ...interface{})
     }
 
     return &pgxResult{result}, nil
-}
-
-func (db *Database) First(ctx context.Context, dest interface{}, query string, args ...interface{}) error {
-    row := db.QueryRow(ctx, query, args...)
-    return row.Scan(dest)
 }
 
 func (db *Database) Insert(ctx context.Context, table string, data map[string]interface{}) (int64, error) {
