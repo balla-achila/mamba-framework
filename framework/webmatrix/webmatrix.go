@@ -191,81 +191,194 @@ func (e *WebMatrixEngine) connectionStringFunc(name string) string {
     return ""
 }
 
+// Extract Layout, Page.Title, and variables from @{} block
+func (e *WebMatrixEngine) processCodeBlocks(content string, data interface{}) (string, interface{}) {
+    codeBlockRegex := regexp.MustCompile(`@\{([^}]*)\}`)
+    
+    processed := content
+    matches := codeBlockRegex.FindAllStringSubmatch(content, -1)
+    
+    for _, match := range matches {
+        if len(match) > 1 {
+            code := strings.TrimSpace(match[1])
+            e.extractVariables(code, data)
+            e.extractLayoutAndTitle(code, data)
+        }
+    }
+    
+    // Remove @{} blocks
+    processed = codeBlockRegex.ReplaceAllString(processed, "")
+    
+    return processed, data
+}
+
+func (e *WebMatrixEngine) extractVariables(code string, data interface{}) {
+    varRegex := regexp.MustCompile(`var\s+(\w+)\s*=\s*([^;]+);?`)
+    matches := varRegex.FindAllStringSubmatch(code, -1)
+    
+    pageData, ok := data.(*PageData)
+    if !ok {
+        return
+    }
+    
+    for _, match := range matches {
+        if len(match) > 2 {
+            varName := strings.TrimSpace(match[1])
+            varValue := strings.TrimSpace(match[2])
+            value := e.evaluateExpression(varValue, data)
+            pageData.SetVar(varName, value)
+        }
+    }
+}
+
+func (e *WebMatrixEngine) extractLayoutAndTitle(code string, data interface{}) {
+    pageData, ok := data.(*PageData)
+    if !ok {
+        return
+    }
+    
+    // Extract Layout = "..."
+    layoutRegex := regexp.MustCompile(`Layout\s*=\s*["']([^"']+)["']`)
+    if matches := layoutRegex.FindStringSubmatch(code); len(matches) > 1 {
+        pageData.Layout = matches[1]
+    }
+    
+    // Extract Page.Title = "..."
+    titleRegex := regexp.MustCompile(`Page\.Title\s*=\s*["']([^"']+)["']`)
+    if matches := titleRegex.FindStringSubmatch(code); len(matches) > 1 {
+        pageData.Title = matches[1]
+    }
+}
+
+func (e *WebMatrixEngine) evaluateExpression(expr string, data interface{}) interface{} {
+    expr = strings.TrimSpace(expr)
+    
+    // String literal
+    if strings.HasPrefix(expr, `"`) && strings.HasSuffix(expr, `"`) {
+        return expr[1 : len(expr)-1]
+    }
+    
+    // AppSettings["key"]
+    appSettingsRegex := regexp.MustCompile(`AppSettings\["([^"]+)"\]`)
+    if matches := appSettingsRegex.FindStringSubmatch(expr); len(matches) > 1 {
+        return e.appSettingsFunc(matches[1])
+    }
+    
+    // ConnectionString["name"]
+    connStringRegex := regexp.MustCompile(`ConnectionString\["([^"]+)"\]`)
+    if matches := connStringRegex.FindStringSubmatch(expr); len(matches) > 1 {
+        return e.connectionStringFunc(matches[1])
+    }
+    
+    // Page.IsPost
+    if expr == "Page.IsPost" {
+        if pageData, ok := data.(*PageData); ok {
+            return pageData.IsPost
+        }
+    }
+    
+    // Page.IsGet
+    if expr == "Page.IsGet" {
+        if pageData, ok := data.(*PageData); ok {
+            return pageData.IsGet
+        }
+    }
+    
+    // Page.Form["key"]
+    formRegex := regexp.MustCompile(`Page\.Form\["([^"]+)"\]`)
+    if matches := formRegex.FindStringSubmatch(expr); len(matches) > 1 {
+        if pageData, ok := data.(*PageData); ok {
+            if val, ok := pageData.Form[matches[1]]; ok {
+                return val
+            }
+        }
+    }
+    
+    // Page.Session["key"]
+    sessionRegex := regexp.MustCompile(`Page\.Session\["([^"]+)"\]`)
+    if matches := sessionRegex.FindStringSubmatch(expr); len(matches) > 1 {
+        if pageData, ok := data.(*PageData); ok {
+            if val, ok := pageData.Session[matches[1]]; ok {
+                return val
+            }
+        }
+    }
+    
+    return expr
+}
+
 // Convert WebMatrix @ syntax to Go template syntax
 func (e *WebMatrixEngine) convertToGoTemplate(content string, data interface{}) string {
-    // Handle @@ escaping: replace @@ with a special token
-    content = strings.ReplaceAll(content, "@@", "___AT_AT___")
+    // Process @{} code blocks first
+    processed, _ := e.processCodeBlocks(content, data)
     
-    // Remove @{} code blocks (they're already processed)
-    content = regexp.MustCompile(`@\{[^}]*\}`).ReplaceAllString(content, "")
+    // Handle @@ escaping
+    processed = strings.ReplaceAll(processed, "@@", "___AT_AT___")
     
     // Convert WebMatrix @ syntax to Go template {{ }} syntax
     
     // @Page.Title -> {{.Title}}
-    content = regexp.MustCompile(`@Page\.Title`).ReplaceAllString(content, `{{.Title}}`)
+    processed = regexp.MustCompile(`@Page\.Title`).ReplaceAllString(processed, `{{.Title}}`)
     
     // @Page.IsPost -> {{.IsPost}}
-    content = regexp.MustCompile(`@Page\.IsPost`).ReplaceAllString(content, `{{.IsPost}}`)
+    processed = regexp.MustCompile(`@Page\.IsPost`).ReplaceAllString(processed, `{{.IsPost}}`)
     
     // @Page.IsGet -> {{.IsGet}}
-    content = regexp.MustCompile(`@Page\.IsGet`).ReplaceAllString(content, `{{.IsGet}}`)
+    processed = regexp.MustCompile(`@Page\.IsGet`).ReplaceAllString(processed, `{{.IsGet}}`)
     
     // @Page.Form["key"] -> {{index .Form "key"}}
-    content = regexp.MustCompile(`@Page\.Form\["([^"]+)"\]`).ReplaceAllString(content, `{{index .Form "$1"}}`)
+    processed = regexp.MustCompile(`@Page\.Form\["([^"]+)"\]`).ReplaceAllString(processed, `{{index .Form "$1"}}`)
     
     // @Page.QueryString["key"] -> {{index .QueryString "key"}}
-    content = regexp.MustCompile(`@Page\.QueryString\["([^"]+)"\]`).ReplaceAllString(content, `{{index .QueryString "$1"}}`)
+    processed = regexp.MustCompile(`@Page\.QueryString\["([^"]+)"\]`).ReplaceAllString(processed, `{{index .QueryString "$1"}}`)
     
     // @Page.Session["key"] -> {{index .Session "key"}}
-    content = regexp.MustCompile(`@Page\.Session\["([^"]+)"\]`).ReplaceAllString(content, `{{index .Session "$1"}}`)
+    processed = regexp.MustCompile(`@Page\.Session\["([^"]+)"\]`).ReplaceAllString(processed, `{{index .Session "$1"}}`)
     
     // @Page.UrlData[0] -> {{index .UrlData 0}}
-    content = regexp.MustCompile(`@Page\.UrlData\[([0-9]+)\]`).ReplaceAllString(content, `{{index .UrlData $1}}`)
+    processed = regexp.MustCompile(`@Page\.UrlData\[([0-9]+)\]`).ReplaceAllString(processed, `{{index .UrlData $1}}`)
     
     // @AppSettings["key"] -> {{AppSettings "key"}}
-    content = regexp.MustCompile(`@AppSettings\["([^"]+)"\]`).ReplaceAllString(content, `{{AppSettings "$1"}}`)
+    processed = regexp.MustCompile(`@AppSettings\["([^"]+)"\]`).ReplaceAllString(processed, `{{AppSettings "$1"}}`)
     
     // @ConnectionString["name"] -> {{ConnectionString "name"}}
-    content = regexp.MustCompile(`@ConnectionString\["([^"]+)"\]`).ReplaceAllString(content, `{{ConnectionString "$1"}}`)
+    processed = regexp.MustCompile(`@ConnectionString\["([^"]+)"\]`).ReplaceAllString(processed, `{{ConnectionString "$1"}}`)
     
     // @Html.AntiForgeryToken() -> {{Html.AntiForgeryToken}}
-    content = regexp.MustCompile(`@Html\.AntiForgeryToken\(\)`).ReplaceAllString(content, `{{Html.AntiForgeryToken}}`)
+    processed = regexp.MustCompile(`@Html\.AntiForgeryToken\(\)`).ReplaceAllString(processed, `{{Html.AntiForgeryToken}}`)
     
     // @Database.Query() -> {{Database.Query}}
-    content = regexp.MustCompile(`@Database\.Query\(([^)]*)\)`).ReplaceAllString(content, `{{Database.Query $1}}`)
+    processed = regexp.MustCompile(`@Database\.Query\(([^)]*)\)`).ReplaceAllString(processed, `{{Database.Query $1}}`)
     
     // @RenderBody() -> {{RenderBody .}}
-    content = regexp.MustCompile(`@RenderBody\(\)`).ReplaceAllString(content, `{{RenderBody .}}`)
+    processed = regexp.MustCompile(`@RenderBody\(\)`).ReplaceAllString(processed, `{{RenderBody .}}`)
     
     // @RenderSection("name") -> {{RenderSection "name" .}}
-    content = regexp.MustCompile(`@RenderSection\(["']([^"']+)["']\)`).ReplaceAllString(content, `{{RenderSection "$1" .}}`)
+    processed = regexp.MustCompile(`@RenderSection\(["']([^"']+)["']\)`).ReplaceAllString(processed, `{{RenderSection "$1" .}}`)
     
     // @IsSectionDefined("name") -> {{IsSectionDefined "name" .}}
-    content = regexp.MustCompile(`@IsSectionDefined\(["']([^"']+)["']\)`).ReplaceAllString(content, `{{IsSectionDefined "$1" .}}`)
+    processed = regexp.MustCompile(`@IsSectionDefined\(["']([^"']+)["']\)`).ReplaceAllString(processed, `{{IsSectionDefined "$1" .}}`)
     
     // @section name { } -> {{define "name"}}...{{end}}
     sectionRegex := regexp.MustCompile(`@section\s+(\w+)\s*{([^}]*)}`)
-    content = sectionRegex.ReplaceAllString(content, `{{define "$1"}}$2{{end}}`)
+    processed = sectionRegex.ReplaceAllString(processed, `{{define "$1"}}$2{{end}}`)
     
     // @foreach(var item in items) -> {{range $index, $item := .Items}}
-    content = regexp.MustCompile(`@foreach\s*\(\s*var\s+(\w+)\s+in\s+(\w+)\s*\)\s*{`).ReplaceAllString(content, `{{range $index, $1 := .$2}}`)
+    processed = regexp.MustCompile(`@foreach\s*\(\s*var\s+(\w+)\s+in\s+(\w+)\s*\)\s*{`).ReplaceAllString(processed, `{{range $index, $1 := .$2}}`)
     
     // @if(condition) -> {{if condition}}
-    content = regexp.MustCompile(`@if\s*\(([^)]+)\)\s*{`).ReplaceAllString(content, `{{if $1}}`)
+    processed = regexp.MustCompile(`@if\s*\(([^)]+)\)\s*{`).ReplaceAllString(processed, `{{if $1}}`)
     
     // @else -> {{else}}
-    content = regexp.MustCompile(`@else\s*{`).ReplaceAllString(content, `{{else}}`)
+    processed = regexp.MustCompile(`@else\s*{`).ReplaceAllString(processed, `{{else}}`)
     
     // @} -> {{end}}
-    content = regexp.MustCompile(`@}`).ReplaceAllString(content, `{{end}}`)
+    processed = regexp.MustCompile(`@}`).ReplaceAllString(processed, `{{end}}`)
     
-    // NOTE: We DO NOT convert generic @variable to {{.variable}} because it would conflict with function calls
-    // Only specific patterns are converted. Plain @ will remain as @ in the output.
+    // Restore @@ escaping
+    processed = strings.ReplaceAll(processed, "___AT_AT___", "@")
     
-    // Restore @@ escaping: replace token back to @
-    content = strings.ReplaceAll(content, "___AT_AT___", "@")
-    
-    return content
+    return processed
 }
 
 func (e *WebMatrixEngine) Render(w io.Writer, name string, data interface{}) error {
@@ -274,21 +387,22 @@ func (e *WebMatrixEngine) Render(w io.Writer, name string, data interface{}) err
         e.pageData = pageData
     }
 
-    // Load the template
+    // Load the page template
     tmpl, err := e.loadTemplate(name, data)
     if err != nil {
         return err
     }
 
-    // Execute the template
-    var buf bytes.Buffer
-    if err := tmpl.Execute(&buf, data); err != nil {
+    // Execute the page template to capture its output
+    var bodyBuf bytes.Buffer
+    if err := tmpl.Execute(&bodyBuf, data); err != nil {
         return err
     }
 
     // If we have page data and a layout, render with layout
     if pageData, ok := data.(*PageData); ok && pageData.Layout != "" {
-        pageData.Body = template.HTML(buf.String())
+        // Store the body content
+        pageData.Body = template.HTML(bodyBuf.String())
         
         // Load and execute layout
         layoutTmpl, err := e.loadLayout(pageData.Layout, data)
@@ -304,7 +418,8 @@ func (e *WebMatrixEngine) Render(w io.Writer, name string, data interface{}) err
         return err
     }
 
-    _, err = w.Write(buf.Bytes())
+    // If no layout, just write the body
+    _, err = w.Write(bodyBuf.Bytes())
     return err
 }
 
