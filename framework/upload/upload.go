@@ -6,6 +6,7 @@ import (
     "fmt"
     "io"
     "mime/multipart"
+    "net/http"
     "os"
     "path/filepath"
     "strings"
@@ -15,12 +16,14 @@ import (
     "github.com/balla-achila/mamba-framework/framework/logger"
 )
 
+// Upload handles file uploads
 type Upload struct {
     config     *config.UploadConfig
     logger     logger.Logger
     uploadPath string
 }
 
+// File represents an uploaded file
 type File struct {
     Name      string
     Original  string
@@ -31,12 +34,14 @@ type File struct {
     URL       string
 }
 
+// UploadResult contains the result of a file upload
 type UploadResult struct {
     Success bool
     Files   []*File
     Errors  []error
 }
 
+// New creates a new Upload instance
 func New(cfg *config.UploadConfig, log logger.Logger, uploadPath string) *Upload {
     // Create upload directory if it doesn't exist
     os.MkdirAll(uploadPath, 0755)
@@ -48,6 +53,7 @@ func New(cfg *config.UploadConfig, log logger.Logger, uploadPath string) *Upload
     }
 }
 
+// ProcessFile processes a single file upload
 func (u *Upload) ProcessFile(file multipart.File, handler *multipart.FileHeader) (*File, error) {
     // Validate file size
     if handler.Size > u.config.MaxSize {
@@ -106,6 +112,7 @@ func (u *Upload) ProcessFile(file multipart.File, handler *multipart.FileHeader)
     }, nil
 }
 
+// ProcessFiles processes multiple file uploads
 func (u *Upload) ProcessFiles(files []*multipart.FileHeader) *UploadResult {
     result := &UploadResult{
         Success: true,
@@ -135,16 +142,19 @@ func (u *Upload) ProcessFiles(files []*multipart.FileHeader) *UploadResult {
     return result
 }
 
+// DeleteFile deletes a file from the uploads directory
 func (u *Upload) DeleteFile(filePath string) error {
     fullPath := filepath.Join(u.uploadPath, filePath)
     return os.Remove(fullPath)
 }
 
+// GetFile retrieves a file from the uploads directory
 func (u *Upload) GetFile(filePath string) ([]byte, error) {
     fullPath := filepath.Join(u.uploadPath, filePath)
     return os.ReadFile(fullPath)
 }
 
+// isAllowedType checks if the MIME type is allowed
 func (u *Upload) isAllowedType(mimeType string) bool {
     for _, allowed := range u.config.AllowedTypes {
         if mimeType == allowed {
@@ -161,6 +171,7 @@ func (u *Upload) isAllowedType(mimeType string) bool {
     return false
 }
 
+// generateUniqueFilename creates a unique filename
 func (u *Upload) generateUniqueFilename(original, ext string) string {
     // Generate random string
     bytes := make([]byte, 16)
@@ -174,11 +185,13 @@ func (u *Upload) generateUniqueFilename(original, ext string) string {
     return fmt.Sprintf("%s_%s_%d%s", original, random, time.Now().UnixNano(), ext)
 }
 
+// GetFileInfo returns file information
 func (u *Upload) GetFileInfo(filePath string) (os.FileInfo, error) {
     fullPath := filepath.Join(u.uploadPath, filePath)
     return os.Stat(fullPath)
 }
 
+// ListFiles lists all files in a directory
 func (u *Upload) ListFiles(path string) ([]string, error) {
     fullPath := filepath.Join(u.uploadPath, path)
     files, err := os.ReadDir(fullPath)

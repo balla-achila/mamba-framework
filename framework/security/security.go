@@ -67,13 +67,11 @@ func (s *Security) setupCSRF() {
 
 func (s *Security) Middleware(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        // Security headers
         w.Header().Set("X-Content-Type-Options", "nosniff")
         w.Header().Set("X-Frame-Options", "DENY")
         w.Header().Set("X-XSS-Protection", "1; mode=block")
         w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 
-        // Check allowed hosts
         if len(s.config.AllowedHosts) > 0 {
             allowed := false
             for _, host := range s.config.AllowedHosts {
@@ -99,13 +97,11 @@ func (s *Security) CSRFMiddleware(next http.Handler) http.Handler {
 
 func (s *Security) RateLimitMiddleware(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        // Skip rate limiting for static assets
         if strings.HasPrefix(r.URL.Path, "/static/") {
             next.ServeHTTP(w, r)
             return
         }
 
-        // Identify client by IP
         clientIP := s.getClientIP(r)
 
         if !s.rateLimiter.Allow(clientIP) {
@@ -123,7 +119,6 @@ func (s *Security) GetCSRFToken(r *http.Request) string {
 }
 
 func (s *Security) getClientIP(r *http.Request) string {
-    // Check X-Forwarded-For header
     if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
         ips := strings.Split(xff, ",")
         if len(ips) > 0 {
@@ -131,12 +126,10 @@ func (s *Security) getClientIP(r *http.Request) string {
         }
     }
 
-    // Check X-Real-IP header
     if xri := r.Header.Get("X-Real-IP"); xri != "" {
         return xri
     }
 
-    // Fallback to remote address
     ip := r.RemoteAddr
     if strings.Contains(ip, ":") {
         ip = strings.Split(ip, ":")[0]
@@ -151,7 +144,6 @@ func (rl *RateLimiter) Allow(key string) bool {
     now := time.Now()
     windowStart := now.Add(-time.Duration(rl.window) * time.Second)
 
-    // Clean up old requests
     if requests, ok := rl.requests[key]; ok {
         valid := make([]time.Time, 0, len(requests))
         for _, t := range requests {
@@ -162,12 +154,10 @@ func (rl *RateLimiter) Allow(key string) bool {
         rl.requests[key] = valid
     }
 
-    // Check if under limit
     if len(rl.requests[key]) >= rl.limit {
         return false
     }
 
-    // Add current request
     rl.requests[key] = append(rl.requests[key], now)
     return true
 }
@@ -178,14 +168,4 @@ func generateRandomString(length int) string {
         b[i] = byte('a' + i%26)
     }
     return string(b)
-}
-
-// SanitizeInput helps prevent XSS
-func (s *Security) SanitizeInput(input string) string {
-    input = strings.ReplaceAll(input, "&", "&amp;")
-    input = strings.ReplaceAll(input, "<", "&lt;")
-    input = strings.ReplaceAll(input, ">", "&gt;")
-    input = strings.ReplaceAll(input, "\"", "&quot;")
-    input = strings.ReplaceAll(input, "'", "&#x27;")
-    return input
 }

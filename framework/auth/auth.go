@@ -11,11 +11,13 @@ import (
     "github.com/balla-achila/mamba-framework/framework/session"
 )
 
+// Auth handles authentication
 type Auth struct {
     db     database.DB
     logger logger.Logger
 }
 
+// User represents a user in the system
 type User struct {
     ID        int64     `json:"id" db:"id"`
     Username  string    `json:"username" db:"username"`
@@ -30,6 +32,7 @@ type User struct {
     UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 }
 
+// LoginAttempt represents a login attempt
 type LoginAttempt struct {
     Username    string    `db:"username"`
     IPAddress   string    `db:"ip_address"`
@@ -37,6 +40,7 @@ type LoginAttempt struct {
     AttemptTime time.Time `db:"attempt_time"`
 }
 
+// PasswordReset represents a password reset request
 type PasswordReset struct {
     ID        int64     `db:"id"`
     UserID    int64     `db:"user_id"`
@@ -45,6 +49,7 @@ type PasswordReset struct {
     Used      bool      `db:"used"`
 }
 
+// New creates a new Auth instance
 func New(db database.DB, log logger.Logger) *Auth {
     return &Auth{
         db:     db,
@@ -52,6 +57,7 @@ func New(db database.DB, log logger.Logger) *Auth {
     }
 }
 
+// Login authenticates a user
 func (a *Auth) Login(ctx context.Context, username, password, ipAddress string) (*User, error) {
     var user User
     err := a.db.QueryRow(ctx, "SELECT id, username, email, password, tenant_id, role, first_name, last_name, is_active, created_at, updated_at FROM users WHERE username = $1 AND is_active = true", username).
@@ -73,6 +79,7 @@ func (a *Auth) Login(ctx context.Context, username, password, ipAddress string) 
     return &user, nil
 }
 
+// Register creates a new user
 func (a *Auth) Register(ctx context.Context, user *User, password string) error {
     hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
     if err != nil {
@@ -104,6 +111,7 @@ func (a *Auth) Register(ctx context.Context, user *User, password string) error 
     return nil
 }
 
+// ChangePassword changes a user's password
 func (a *Auth) ChangePassword(ctx context.Context, userID int64, oldPassword, newPassword string) error {
     var currentPassword string
     err := a.db.QueryRow(ctx, "SELECT password FROM users WHERE id = $1", userID).Scan(&currentPassword)
@@ -128,6 +136,7 @@ func (a *Auth) ChangePassword(ctx context.Context, userID int64, oldPassword, ne
     return err
 }
 
+// ResetPassword initiates a password reset
 func (a *Auth) ResetPassword(ctx context.Context, email string) (string, error) {
     var userID int64
     err := a.db.QueryRow(ctx, "SELECT id FROM users WHERE email = $1 AND is_active = true", email).Scan(&userID)
@@ -152,6 +161,7 @@ func (a *Auth) ResetPassword(ctx context.Context, email string) (string, error) 
     return token, nil
 }
 
+// ConfirmReset confirms a password reset
 func (a *Auth) ConfirmReset(ctx context.Context, token, newPassword string) error {
     var reset PasswordReset
     err := a.db.QueryRow(ctx, "SELECT id, user_id, token, expires_at, used FROM password_resets WHERE token = $1 AND used = false AND expires_at > NOW()", token).
@@ -186,6 +196,7 @@ func (a *Auth) ConfirmReset(ctx context.Context, token, newPassword string) erro
     return tx.Commit(ctx)
 }
 
+// Logout handles user logout
 func (a *Auth) Logout(ctx context.Context, userID int64) error {
     _, err := a.db.Update(ctx, "users", map[string]interface{}{
         "updated_at": time.Now(),
@@ -193,6 +204,7 @@ func (a *Auth) Logout(ctx context.Context, userID int64) error {
     return err
 }
 
+// logLoginAttempt logs a login attempt
 func (a *Auth) logLoginAttempt(ctx context.Context, username, ipAddress string, success bool) {
     _, err := a.db.Insert(ctx, "login_attempts", map[string]interface{}{
         "username":     username,
@@ -205,6 +217,7 @@ func (a *Auth) logLoginAttempt(ctx context.Context, username, ipAddress string, 
     }
 }
 
+// GetUserByID retrieves a user by ID
 func (a *Auth) GetUserByID(ctx context.Context, userID int64) (*User, error) {
     var user User
     err := a.db.QueryRow(ctx, "SELECT id, username, email, password, tenant_id, role, first_name, last_name, is_active, created_at, updated_at FROM users WHERE id = $1", userID).
@@ -218,6 +231,7 @@ func (a *Auth) GetUserByID(ctx context.Context, userID int64) (*User, error) {
     return &user, nil
 }
 
+// GetUserByEmail retrieves a user by email
 func (a *Auth) GetUserByEmail(ctx context.Context, email string) (*User, error) {
     var user User
     err := a.db.QueryRow(ctx, "SELECT id, username, email, password, tenant_id, role, first_name, last_name, is_active, created_at, updated_at FROM users WHERE email = $1", email).

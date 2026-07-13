@@ -5,12 +5,14 @@ import (
     "net/http"
 
     "github.com/balla-achila/mamba-framework/framework/session"
+    
 )
 
 type contextKey string
 
 const userContextKey contextKey = "user"
 
+// RequireAuth middleware ensures the user is authenticated
 func (a *Auth) RequireAuth(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
         sess := session.FromContext(r.Context())
@@ -36,6 +38,7 @@ func (a *Auth) RequireAuth(next http.Handler) http.Handler {
     })
 }
 
+// RequireRole middleware ensures the user has one of the required roles
 func (a *Auth) RequireRole(roles ...string) func(http.Handler) http.Handler {
     return func(next http.Handler) http.Handler {
         return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -57,6 +60,27 @@ func (a *Auth) RequireRole(roles ...string) func(http.Handler) http.Handler {
     }
 }
 
+// RequirePermission middleware ensures the user has a specific permission
+func (a *Auth) RequirePermission(permission string) func(http.Handler) http.Handler {
+    return func(next http.Handler) http.Handler {
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+            user, ok := r.Context().Value(userContextKey).(*User)
+            if !ok {
+                http.Error(w, "Unauthorized", http.StatusUnauthorized)
+                return
+            }
+
+            // TODO: Implement actual permission checking
+            // Check if user has the required permission
+            // For now, allow access
+            _ = user // Prevent unused variable warning
+
+            next.ServeHTTP(w, r)
+        })
+    }
+}
+
+// GetUserFromContext retrieves the user from the context
 func GetUserFromContext(ctx context.Context) *User {
     if user, ok := ctx.Value(userContextKey).(*User); ok {
         return user

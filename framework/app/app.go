@@ -1,7 +1,6 @@
 package app
 
 import (
-    "context"
     "net/http"
     "path/filepath"
 
@@ -17,6 +16,7 @@ import (
     "github.com/balla-achila/mamba-framework/framework/tenant"
 )
 
+// App represents the main application
 type App struct {
     Config       *config.Config
     Logger       logger.Logger
@@ -33,6 +33,7 @@ type App struct {
     partialsPath string
 }
 
+// AppContext holds request-scoped application context
 type AppContext struct {
     App      *App
     Request  *http.Request
@@ -42,6 +43,7 @@ type AppContext struct {
     Tenant   *tenant.Tenant
 }
 
+// New creates a new application instance
 func New(cfg *config.Config, log logger.Logger, db database.DB) *App {
     // Initialize session manager
     sessionCfg := &session.Config{
@@ -98,6 +100,7 @@ func New(cfg *config.Config, log logger.Logger, db database.DB) *App {
     return app
 }
 
+// setupMiddlewares configures all application middlewares
 func (a *App) setupMiddlewares() {
     a.Router.Use(a.Session.Middleware)
     if a.Config.Tenant.Enabled {
@@ -108,6 +111,7 @@ func (a *App) setupMiddlewares() {
     a.Router.Use(a.Security.RateLimitMiddleware)
 }
 
+// HandlePage registers a page handler with automatic CRUD routes
 func (a *App) HandlePage(page string, handler func(ctx *AppContext) error) {
     a.Router.Get("/"+page, a.pageHandler(page, handler))
     a.Router.Post("/"+page+"/save", a.pageHandler(page+"/save", handler))
@@ -115,14 +119,17 @@ func (a *App) HandlePage(page string, handler func(ctx *AppContext) error) {
     a.Router.Post("/"+page+"/update", a.pageHandler(page+"/update", handler))
 }
 
+// Handle registers a custom route handler
 func (a *App) Handle(path, method string, handler func(ctx *AppContext) error) {
     a.Router.AddRoute(method, path, a.handlerWrapper(handler))
 }
 
+// pageHandler wraps a page handler
 func (a *App) pageHandler(page string, handler func(ctx *AppContext) error) http.HandlerFunc {
     return a.handlerWrapper(handler)
 }
 
+// handlerWrapper wraps a handler with app context
 func (a *App) handlerWrapper(handler func(ctx *AppContext) error) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
         sess := session.FromContext(r.Context())
@@ -145,39 +152,48 @@ func (a *App) handlerWrapper(handler func(ctx *AppContext) error) http.HandlerFu
     }
 }
 
+// Render renders a template
 func (a *App) Render(ctx *AppContext, name string, data interface{}) error {
     return a.Layout.Render(ctx.Response, name, data)
 }
 
+// RenderPartial renders a partial template
 func (a *App) RenderPartial(ctx *AppContext, name string, data interface{}) error {
     return a.Layout.RenderPartial(ctx.Response, name, data)
 }
 
+// Redirect sends a redirect response
 func (a *App) Redirect(ctx *AppContext, url string, code int) {
     http.Redirect(ctx.Response, ctx.Request, url, code)
 }
 
+// JSON sends a JSON response
 func (a *App) JSON(ctx *AppContext, data interface{}) error {
     ctx.Response.Header().Set("Content-Type", "application/json")
     return nil
 }
 
+// Param returns a route parameter
 func (c *AppContext) Param(name string) string {
     return router.GetRouteParam(c.Request.Context(), name)
 }
 
+// Params returns all route parameters
 func (c *AppContext) Params() map[string]string {
     return router.GetRouteParams(c.Request.Context())
 }
 
+// FormValue returns a form value
 func (c *AppContext) FormValue(name string) string {
     return c.Request.FormValue(name)
 }
 
+// QueryValue returns a query parameter
 func (c *AppContext) QueryValue(name string) string {
     return c.Request.URL.Query().Get(name)
 }
 
+// Flash returns a flash message
 func (c *AppContext) Flash(key string) string {
     if c.Session != nil {
         flashes := c.Session.GetFlashMessages()
@@ -188,6 +204,7 @@ func (c *AppContext) Flash(key string) string {
     return ""
 }
 
+// AddFlash adds a flash message
 func (c *AppContext) AddFlash(key, message string) {
     if c.Session != nil {
         c.Session.AddFlashMessage(key, message)
@@ -195,10 +212,12 @@ func (c *AppContext) AddFlash(key, message string) {
     }
 }
 
+// IsAuthenticated checks if the user is authenticated
 func (c *AppContext) IsAuthenticated() bool {
     return c.User != nil && c.User.ID > 0
 }
 
+// HasRole checks if the user has a specific role
 func (c *AppContext) HasRole(role string) bool {
     if c.User == nil {
         return false

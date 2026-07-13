@@ -1,25 +1,27 @@
 package session
 
 import (
-
-    "context"
     "net/http"
     "time"
+
     "github.com/gorilla/sessions"
     "github.com/gorilla/securecookie"
 )
 
+// Session wraps a gorilla session
 type Session struct {
     session *sessions.Session
     request *http.Request
     writer  http.ResponseWriter
 }
 
+// Manager manages sessions
 type Manager struct {
     store *sessions.CookieStore
     name  string
 }
 
+// Config holds session configuration
 type Config struct {
     SecretKey string
     Name      string
@@ -29,6 +31,7 @@ type Config struct {
     SameSite  string
 }
 
+// New creates a new session manager
 func New(cfg *Config) *Manager {
     key := []byte(cfg.SecretKey)
     store := sessions.NewCookieStore(key)
@@ -47,6 +50,7 @@ func New(cfg *Config) *Manager {
     }
 }
 
+// parseSameSite converts string to http.SameSite
 func parseSameSite(s string) http.SameSite {
     switch s {
     case "lax":
@@ -60,6 +64,7 @@ func parseSameSite(s string) http.SameSite {
     }
 }
 
+// Middleware adds session to request context
 func (m *Manager) Middleware(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
         session, _ := m.store.Get(r, m.name)
@@ -72,6 +77,7 @@ func (m *Manager) Middleware(next http.Handler) http.Handler {
     })
 }
 
+// Get retrieves a session from the request
 func (m *Manager) Get(r *http.Request) (*Session, error) {
     session, err := m.store.Get(r, m.name)
     if err != nil {
@@ -83,26 +89,32 @@ func (m *Manager) Get(r *http.Request) (*Session, error) {
     }, nil
 }
 
+// Get returns a value from the session
 func (s *Session) Get(key string) interface{} {
     return s.session.Values[key]
 }
 
+// Set stores a value in the session
 func (s *Session) Set(key string, value interface{}) {
     s.session.Values[key] = value
 }
 
+// Delete removes a value from the session
 func (s *Session) Delete(key string) {
     delete(s.session.Values, key)
 }
 
+// Clear removes all values from the session
 func (s *Session) Clear() {
     s.session.Values = make(map[interface{}]interface{})
 }
 
+// Save saves the session
 func (s *Session) Save() error {
     return s.session.Save(s.request, s.writer)
 }
 
+// IsAuthenticated checks if the user is authenticated
 func (s *Session) IsAuthenticated() bool {
     userID, ok := s.Get("user_id").(int64)
     if !ok {
@@ -111,6 +123,7 @@ func (s *Session) IsAuthenticated() bool {
     return userID > 0
 }
 
+// GetUserID returns the user ID from the session
 func (s *Session) GetUserID() int64 {
     if userID, ok := s.Get("user_id").(int64); ok {
         return userID
@@ -118,6 +131,7 @@ func (s *Session) GetUserID() int64 {
     return 0
 }
 
+// SetUser sets the user in the session
 func (s *Session) SetUser(userID int64, username, email string) {
     s.Set("user_id", userID)
     s.Set("username", username)
@@ -126,11 +140,13 @@ func (s *Session) SetUser(userID int64, username, email string) {
     s.Set("last_activity", time.Now())
 }
 
+// Logout clears the session
 func (s *Session) Logout() {
     s.Clear()
     s.Set("authenticated", false)
 }
 
+// GetFlashMessages retrieves and clears flash messages
 func (s *Session) GetFlashMessages() map[string]string {
     if messages, ok := s.Get("flash_messages").(map[string]string); ok {
         s.Delete("flash_messages")
@@ -139,12 +155,14 @@ func (s *Session) GetFlashMessages() map[string]string {
     return make(map[string]string)
 }
 
+// AddFlashMessage adds a flash message
 func (s *Session) AddFlashMessage(key, message string) {
     messages := s.GetFlashMessages()
     messages[key] = message
     s.Set("flash_messages", messages)
 }
 
+// GenerateCSRF generates a CSRF token
 func GenerateCSRF() string {
     return string(securecookie.GenerateRandomKey(32))
 }

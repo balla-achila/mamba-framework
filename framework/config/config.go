@@ -85,6 +85,7 @@ type TenantConfig struct {
     TenantParam     string `json:"tenant_param"`
 }
 
+// Load loads the configuration from a file
 func Load(path string) (*Config, error) {
     data, err := os.ReadFile(path)
     if err != nil {
@@ -134,6 +135,7 @@ func Load(path string) (*Config, error) {
     return &cfg, nil
 }
 
+// DefaultConfig returns a default configuration
 func DefaultConfig() *Config {
     return &Config{
         Environment: "development",
@@ -203,14 +205,17 @@ func DefaultConfig() *Config {
     }
 }
 
+// IsProduction returns true if the environment is production
 func (c *Config) IsProduction() bool {
     return c.Environment == "production"
 }
 
+// IsDevelopment returns true if the environment is development
 func (c *Config) IsDevelopment() bool {
     return c.Environment == "development"
 }
 
+// GetDSN returns the database connection string
 func (c *Config) GetDSN() string {
     return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
         c.Database.Host, c.Database.Port, c.Database.User,

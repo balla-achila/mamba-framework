@@ -2,8 +2,8 @@ package main
 
 import (
     "fmt"
-    "log"
     "net/http"
+    "os"
 
     "github.com/balla-achila/mamba-framework/framework/app"
     "github.com/balla-achila/mamba-framework/framework/config"
@@ -23,14 +23,25 @@ func main() {
     // Load config
     cfg, err := config.Load("config/config.json")
     if err != nil {
-        log.Printf("⚠️  Using default config: %v", err)
+        fmt.Printf("⚠️  Using default config: %v\n", err)
         cfg = config.DefaultConfig()
     }
 
+    // Convert config.Logger to logger.Config
+    loggerCfg := &logger.Config{
+        Level:      cfg.Logger.Level,
+        OutputPath: cfg.Logger.OutputPath,
+        MaxSize:    cfg.Logger.MaxSize,
+        MaxBackups: cfg.Logger.MaxBackups,
+        MaxAge:     cfg.Logger.MaxAge,
+        Compress:   cfg.Logger.Compress,
+    }
+
     // Initialize logger
-    log, err := logger.New(&cfg.Logger)
+    log, err := logger.New(loggerCfg)
     if err != nil {
-        log.Fatalf("Failed to initialize logger: %v", err)
+        fmt.Printf("Failed to initialize logger: %v\n", err)
+        os.Exit(1)
     }
     defer log.Sync()
 

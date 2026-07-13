@@ -12,7 +12,7 @@ import (
 
 type Server struct {
     httpServer *http.Server
-    app        interface{} // Will be *app.App later
+    app        interface{}
     config     *config.ServerConfig
     logger     logger.Logger
 }
@@ -24,7 +24,6 @@ func New(cfg *config.ServerConfig, app interface{}, log logger.Logger) *Server {
         logger: log,
     }
 
-    // We'll set the handler later when app is fully built
     server.httpServer = &http.Server{
         Addr:           fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
         ReadTimeout:    time.Duration(cfg.ReadTimeout) * time.Second,
@@ -35,7 +34,6 @@ func New(cfg *config.ServerConfig, app interface{}, log logger.Logger) *Server {
     return server
 }
 
-// SetHandler sets the HTTP handler for the server
 func (s *Server) SetHandler(handler http.Handler) {
     s.httpServer.Handler = handler
 }
