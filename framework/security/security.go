@@ -67,21 +67,24 @@ func (s *Security) setupCSRF() {
 
 func (s *Security) Middleware(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        // Security headers
         w.Header().Set("X-Content-Type-Options", "nosniff")
         w.Header().Set("X-Frame-Options", "DENY")
         w.Header().Set("X-XSS-Protection", "1; mode=block")
         w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 
+        // Check allowed hosts - skip if in development or no hosts configured
         if len(s.config.AllowedHosts) > 0 {
             allowed := false
             for _, host := range s.config.AllowedHosts {
-                if r.Host == host {
+                // Check if host matches (including port)
+                if r.Host == host || strings.HasPrefix(r.Host, host+":") {
                     allowed = true
                     break
                 }
             }
             if !allowed {
-                s.logger.Warn("Invalid host rejected", "host", r.Host)
+                s.logger.Warn("Invalid host rejected", "host", r.Host, "allowed_hosts", s.config.AllowedHosts)
                 http.Error(w, "Invalid host", http.StatusForbidden)
                 return
             }
@@ -168,4 +171,13 @@ func generateRandomString(length int) string {
         b[i] = byte('a' + i%26)
     }
     return string(b)
+}
+
+func (s *Security) SanitizeInput(input string) string {
+    input = strings.ReplaceAll(input, "&", "&amp;")
+    input = strings.ReplaceAll(input, "<", "&lt;")
+    input = strings.ReplaceAll(input, ">", "&gt;")
+    input = strings.ReplaceAll(input, "\"", "&quot;")
+    input = strings.ReplaceAll(input, "'", "&#x27;")
+    return input
 }

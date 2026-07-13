@@ -44,7 +44,7 @@
         "csrf_max_age": 86400,
         "rate_limit": 100,
         "rate_limit_window": 60,
-        "allowed_hosts": ["localhost", "127.0.0.1"],
+        "allowed_hosts": ["localhost", "127.0.0.1", "a.lulusms.com"],
         "force_https": false,
         "hsts_max_age": 0
     },

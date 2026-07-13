@@ -1,0 +1,39 @@
+@{
+    Layout = "~/_Layout.gshtml";
+    Page.Title = "About Mamba Framework";
+}
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1>About {{AppSettings "SiteName"}}</h1>
+            <hr>
+            <p><strong>Version:</strong> {{AppSettings "Version"}}</p>
+            <p><strong>Company:</strong> {{AppSettings "CompanyName"}}</p>
+            <p><strong>Support Email:</strong> <a href="mailto:{{AppSettings "SupportEmail"}}">{{AppSettings "SupportEmail"}}</a></p>
+            <hr>
+            <p>This is a WebMatrix-style framework built in Go.</p>
+            <p>The framework supports:</p>
+            <ul>
+                <li>@{} code blocks</li>
+                <li>Layout engine with @@RenderBody() and @@RenderSection()</li>
+                <li>Database helpers with @@Database.Query()</li>
+                <li>Form handling with @@Page.IsPost and @@Page.Form[]</li>
+                <li>Session management with @@Page.Session[]</li>
+                <li>Configuration via web.config</li>
+            </ul>
+            <p><strong>Test Database Query:</strong></p>
+            <ul>
+                {{range Database.Query "SELECT * FROM employees"}}
+                <li>{{.name}} - {{.department}}</li>
+                {{end}}
+            </ul>
+        </div>
+    </div>
+</div>
+
+@section scripts {
+    <script>
+        console.log('About page loaded');
+    </script>
+}

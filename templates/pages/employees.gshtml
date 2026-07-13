@@ -1,0 +1,54 @@
+@{
+    Layout = "~/_Layout.gshtml";
+    Page.Title = "Employees";
+}
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1>Employees</h1>
+            <hr>
+            <div class="d-flex justify-content-between mb-3">
+                <p>Manage your employees</p>
+                <a href="/employees/create" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> Add Employee
+                </a>
+            </div>
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Department</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range Database.Query "SELECT * FROM employees"}}
+                    <tr>
+                        <td>{{.id}}</td>
+                        <td>{{.name}}</td>
+                        <td>{{.email}}</td>
+                        <td>{{.department}}</td>
+                        <td>
+                            <a href="/employees/edit/{{.id}}" class="btn btn-sm btn-warning">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <a href="/employees/delete/{{.id}}" class="btn btn-sm btn-danger" onclick="return confirm('Delete this employee?')">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@section scripts {
+    <script>
+        console.log('Employees page loaded');
+    </script>
+}
