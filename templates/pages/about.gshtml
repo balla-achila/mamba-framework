@@ -1,5 +1,5 @@
 @{
-    Layout = "~/_Layout.gshtml";
+    Layout = "~/_Layout";
     Page.Title = "About Mamba Framework";
 }
 

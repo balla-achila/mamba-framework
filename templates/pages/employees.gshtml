@@ -1,5 +1,5 @@
 @{
-    Layout = "~/_Layout.gshtml";
+    Layout = "~/_Layout";
     Page.Title = "Employees";
 }
 
@@ -9,7 +9,7 @@
             <h1>Employees</h1>
             <hr>
             <div class="d-flex justify-content-between mb-3">
-                <p>Manage your employees</p>
+                <p>Manage your employees 2</p>
                 <a href="/employees/create" class="btn btn-primary">
                     <i class="bi bi-plus-circle"></i> Add Employee
                 </a>

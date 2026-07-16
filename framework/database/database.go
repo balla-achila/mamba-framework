@@ -4,13 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
+	"strconv"
 	"time"
 
+	"github.com/balla-achila/mamba-framework/framework/config"
+	"github.com/balla-achila/mamba-framework/framework/logger"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/balla-achila/mamba-framework/framework/config"
-	"github.com/balla-achila/mamba-framework/framework/logger"
 )
 
 type DB interface {
@@ -182,11 +184,14 @@ func (db *Database) Update(ctx context.Context, table string, data map[string]in
 		i++
 	}
 
-	// Dynamic positioning parameters adjustment for WHERE clause parameters
-	updatedWhere := where
-	for j := range args {
-		updatedWhere = replacePlaceholder(updatedWhere, fmt.Sprintf("$%d", j+1), fmt.Sprintf("$%d", i+j))
-	}
+	// Renumber the WHERE clause's $1, $2, ... placeholders so they continue
+	// directly after the SET clause's placeholders (offset = number of SET
+	// columns). Done in a single regex pass over the original string rather
+	// than repeated sequential substitutions, since replacing $1 -> $2 and
+	// then $2 -> $3 in two separate passes over the same string would also
+	// rewrite the placeholder that the first pass just produced.
+	offset := len(data)
+	updatedWhere := renumberPlaceholders(where, offset)
 
 	values = append(values, args...)
 	query := fmt.Sprintf("UPDATE %s SET %s WHERE %s", table, join(setClauses, ", "), updatedWhere)
@@ -238,9 +243,21 @@ func join(strs []string, sep string) string {
 	return result
 }
 
-func replacePlaceholder(s, old, new string) string {
-	// Simple fallback utility function to update dynamic placeholders
-	return fmt.Sprintf("%v", s) 
+// placeholderRegex matches Postgres positional parameters like $1, $12, etc.
+var placeholderRegex = regexp.MustCompile(`\$(\d+)`)
+
+// renumberPlaceholders shifts every $N placeholder in s up by offset, using
+// a single regexp.ReplaceAllStringFunc pass (rather than sequential
+// substring replacement) so that a placeholder produced by renumbering one
+// match can't be re-matched and shifted again by a later replacement.
+func renumberPlaceholders(s string, offset int) string {
+	return placeholderRegex.ReplaceAllStringFunc(s, func(m string) string {
+		n, err := strconv.Atoi(m[1:])
+		if err != nil {
+			return m
+		}
+		return fmt.Sprintf("$%d", n+offset)
+	})
 }
 
 type Rows struct {

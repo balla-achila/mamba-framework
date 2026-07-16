@@ -1,5 +1,5 @@
 @{
-    Layout = "~/_Layout.gshtml";
+    Layout = "~/_Layout";
     Page.Title = "Create Employee";
     
     var isPost = Page.IsPost;
@@ -35,7 +35,7 @@
             }
             
             <form method="POST">
-                <div class="mb-3">
+                @Html.AntiForgeryToken()                <div class="mb-3">
                     <label for="name" class="form-label">Name <span class="text-danger">*</span></label>
                     <input type="text" class="form-control" id="name" name="name" value="@name" required>
                 </div>
